@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+
+/* Font utility classes - used in layout and pages */
+.font-focal {
+  font-family: var(--font-focal-web), system-ui, sans-serif;
+}
+
+.font-hal {
+  font-family: var(--font-focal-web), system-ui, sans-serif;
+}
+
+/* FAL Kontext Design System Variables - used in components */
+:root {
+  --surface-alpha-strong: hsla(0,0%,38%,0.201);
+  --content-base: hsla(0,0%,27%);
+  --content-strong: hsla(0,0%,15%);
+  --content-stronger: hsla(0,0%,8%);
+  --content-light: hsla(0,0%,40%);
+  --content-lighter: hsla(0,0%,53%);
+  --primary: #8553FF;
+  --primary-dark: #762FF8;
+  --primary-foreground: #FFFFFF;
+}
+
+/* FAL Kontext Utility Classes - used in buttons and text */
+.text-content-base { color: var(--content-base); }
+.text-content-strong { color: var(--content-strong); }
+.text-content-stronger { color: var(--content-stronger); }
+.text-content-light { color: var(--content-light); }
+.text-content-lighter { color: var(--content-lighter); }
+.bg-primary { background-color: var(--primary); }
+.bg-primary-dark { background-color: var(--primary-dark); }
+.text-primary-foreground { color: var(--primary-foreground); }
+.bg-surface-alpha-strong { background-color: var(--surface-alpha-strong); }
+.border-primary-dark { border-color: var(--primary-dark); }
+.hover\:bg-primary-dark:hover { background-color: var(--primary-dark); }
+
+/* Custom animations for banana effects */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-40px) translateX(20px) rotate(90deg);
+  }
+  50% {
+    transform: translateY(30px) translateX(-15px) rotate(180deg);
+  }
+  75% {
+    transform: translateY(-20px) translateX(25px) rotate(270deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUpBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUpCenter {
+  from {
+    transform: translateY(20px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}

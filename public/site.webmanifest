@@ -1,0 +1,20 @@
+{
+  "name": "Nano Banana Playground",
+  "short_name": "Nano Banana",
+  "description": "A playground for Google's new model, built by FAL.ai.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#8553FF",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["productivity", "utilities", "media", "ai", "playground"],
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

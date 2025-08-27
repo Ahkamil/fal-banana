@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://fal-banana.com/sitemap.xml
+
+# Disallow API routes
+Disallow: /api/
+
+# Allow nano banana demo
+Allow: /playground/

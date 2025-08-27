@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import StructuredData from "./structured-data";
-import { Analytics } from "@vercel/analytics/next";
+import { Analytics } from "@vercel/analytics/next"
 
 // Focal Web - Main font for everything (from FAL.AI)
 const focalWeb = localFont({
@@ -197,8 +197,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased font-focal">
         <StructuredData />
-        {children}
         <Analytics />
+        {children}
+      
       </body>
     </html>
   );

@@ -23,8 +23,8 @@ A powerful AI-powered image transformation playground showcasing the capabilitie
 
 1. **Fork or clone this repository**
 ```bash
-git clone https://github.com/yourusername/fal-room-designer.git
-cd fal-room-designer
+git clone https://github.com/fal-ai-community/fal-banana.git
+cd fal-banana
 ```
 
 2. **Install dependencies**
@@ -90,7 +90,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the application.
 ## 📁 Project Structure
 
 ```
-fal-room-designer/
+fal-banana/
 ├── src/
 │   ├── app/
 │   │   ├── api/           # API routes for fal.ai integration
@@ -147,7 +147,7 @@ The project uses Tailwind CSS v4. Modify the theme in `tailwind.config.ts` or ad
 
 ### Deploy on Vercel (Recommended)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/fal-room-designer&env=FAL_KEY&envDescription=Your%20fal.ai%20API%20key&envLink=https://fal.ai)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/fal-ai-community/fal-banana&env=FAL_KEY&envDescription=Your%20fal.ai%20API%20key&envLink=https://fal.ai)
 
 1. Click the button above
 2. Add your `FAL_KEY` environment variable
@@ -190,7 +190,7 @@ This project is open source and available for anyone to use, modify, and distrib
 
 ## 🔗 Links
 
-- **Live Demo**: [Your deployment URL]
+- **GitHub Repository**: [github.com/fal-ai-community/fal-banana](https://github.com/fal-ai-community/fal-banana)
 - **fal.ai Documentation**: [docs.fal.ai](https://docs.fal.ai)
 - **Model Playground**: [fal.ai/models](https://fal.ai/models)
 - **Get API Key**: [fal.ai](https://fal.ai)
@@ -206,7 +206,7 @@ This showcase demonstrates its capabilities through practical, fun applications 
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/fal-room-designer/issues)
+- **Issues**: [GitHub Issues](https://github.com/fal-ai-community/fal-banana/issues)
 - **fal.ai Support**: [support@fal.ai](mailto:support@fal.ai)
 - **Documentation**: [docs.fal.ai](https://docs.fal.ai)
 

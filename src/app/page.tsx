@@ -13,8 +13,12 @@ export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8553FF] mx-auto"></div>
-        <p className="mt-4 text-gray-600">Redirecting to playground...</p>
+        <img 
+          src="/banana-banner.png" 
+          alt="GPU Rich Banana - Redirecting" 
+          className="w-full max-w-2xl mx-auto animate-pulse"
+        />
+        <p className="mt-4 text-gray-600 text-lg font-medium">Loading playground...</p>
       </div>
     </div>
   );

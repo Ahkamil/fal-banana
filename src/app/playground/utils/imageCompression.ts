@@ -49,6 +49,30 @@ export const compressImage = async (
   });
 };
 
+export const compressImageToSize = async (
+  dataUrl: string,
+  targetSizeMB: number = 4
+): Promise<string> => {
+  let quality = 0.9;
+  let maxDimension = 1920;
+  let compressedUrl = dataUrl;
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  while (getImageSizeInMB(compressedUrl) > targetSizeMB && attempts < maxAttempts) {
+    compressedUrl = await compressImage(dataUrl, maxDimension, maxDimension, quality);
+    
+    if (getImageSizeInMB(compressedUrl) > targetSizeMB) {
+      quality -= 0.1;
+      maxDimension = Math.max(600, maxDimension - 200);
+    }
+    
+    attempts++;
+  }
+
+  return compressedUrl;
+};
+
 export const getImageSizeInMB = (dataUrl: string): number => {
   const base64Length = dataUrl.split(',')[1]?.length || 0;
   const sizeInBytes = (base64Length * 3) / 4;

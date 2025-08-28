@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Package, User, Upload, Image as ImageIcon, Eye } from 'lucide-react';
 import { LogoIcon } from './LogoIcon';
 import { BananaRain } from './BananaRain';
-import { compressImage, getImageSizeInMB } from '../utils/imageCompression';
+import { compressImage, getImageSizeInMB, compressImageToSize } from '../utils/imageCompression';
 // FAL API calls are handled through server-side routes for security
 
 interface GeneratedImage {
@@ -38,19 +38,20 @@ const ObjectHoldingTab = () => {
       reader.onload = async (e) => {
         let imageUrl = e.target?.result as string;
         
-        // Check image size and compress if needed (>6MB)
+        // Compress image to stay under Vercel's 4MB limit
         const sizeInMB = getImageSizeInMB(imageUrl);
-        if (sizeInMB > 6) {
+        if (sizeInMB > 3.5) {  // Use 3.5MB as target to leave some buffer
           try {
-            // Compress image to max 1920x1920 with 90% quality
-            imageUrl = await compressImage(imageUrl, 1920, 1920, 0.9);
-            
-            // If still too large, compress more aggressively
-            if (getImageSizeInMB(imageUrl) > 6) {
-              imageUrl = await compressImage(imageUrl, 1024, 1024, 0.8);
-            }
+            imageUrl = await compressImageToSize(imageUrl, 3.5);
+            console.log(`Image compressed from ${sizeInMB.toFixed(2)}MB to ${getImageSizeInMB(imageUrl).toFixed(2)}MB`);
           } catch (error) {
             console.error('Failed to compress image:', error);
+            // Fallback to aggressive compression
+            try {
+              imageUrl = await compressImage(imageUrl, 800, 800, 0.5);
+            } catch (fallbackError) {
+              console.error('Fallback compression also failed:', fallbackError);
+            }
           }
         }
         
@@ -258,6 +259,9 @@ const ObjectHoldingTab = () => {
 
       if (!generateResponse.ok) {
         const errorData = await generateResponse.json();
+        if (generateResponse.status === 413) {
+          throw new Error(`Image size too large: ${errorData.error}. ${errorData.tip || ''}`);
+        }
         throw new Error(errorData.error || 'Failed to generate image');
       }
       

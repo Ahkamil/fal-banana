@@ -39,8 +39,47 @@ function base64ToBlob(base64: string): Blob {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check request size before processing
+    const contentLength = request.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 4 * 1024 * 1024) {
+      return NextResponse.json(
+        { 
+          error: 'Request too large. Please compress your images before uploading. Maximum size is 4MB.',
+          tip: 'Images are automatically compressed on the client side. If you still see this error, try uploading smaller images.'
+        },
+        { status: 413 }
+      );
+    }
+    
     const body = await request.json();
     const { prompt, image_url, object_image_url, num_images = 1, customApiKey } = body;
+    
+    // Additional check for base64 image sizes
+    if (image_url && image_url.startsWith('data:')) {
+      const imageSizeBytes = (image_url.length * 3) / 4;
+      if (imageSizeBytes > 3.5 * 1024 * 1024) {
+        return NextResponse.json(
+          { 
+            error: 'Person image is too large. Maximum size is 3.5MB after compression.',
+            currentSize: `${(imageSizeBytes / (1024 * 1024)).toFixed(2)}MB`
+          },
+          { status: 413 }
+        );
+      }
+    }
+    
+    if (object_image_url && object_image_url.startsWith('data:')) {
+      const objectSizeBytes = (object_image_url.length * 3) / 4;
+      if (objectSizeBytes > 3.5 * 1024 * 1024) {
+        return NextResponse.json(
+          { 
+            error: 'Object image is too large. Maximum size is 3.5MB after compression.',
+            currentSize: `${(objectSizeBytes / (1024 * 1024)).toFixed(2)}MB`
+          },
+          { status: 413 }
+        );
+      }
+    }
 
     // Validate required fields
     if (!prompt || !image_url) {

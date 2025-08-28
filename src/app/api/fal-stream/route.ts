@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fal } from '@fal-ai/client';
 
+export const maxDuration = 100; // Maximum function duration: 100 seconds
+export const runtime = 'nodejs';
+
 // Configure FAL client with API key
 fal.config({
   credentials: process.env.FAL_KEY

@@ -3,6 +3,9 @@ import { fal } from '@fal-ai/client';
 import sharp from 'sharp';
 import { isUrlSafe, getUrlValidationError } from '@/lib/url-validator';
 
+export const maxDuration = 100; // Maximum function duration: 100 seconds
+export const runtime = 'nodejs';
+
 // Get FAL API key from environment variable
 const FAL_KEY = process.env.FAL_KEY;
 

@@ -1,0 +1,22 @@
+{
+  "functions": {
+    "src/app/api/fal-edit/route.ts": {
+      "maxDuration": 100
+    },
+    "src/app/api/fal-upload/route.ts": {
+      "maxDuration": 100
+    },
+    "src/app/api/merge-and-analyze/route.ts": {
+      "maxDuration": 100
+    },
+    "src/app/api/fal/route.ts": {
+      "maxDuration": 100
+    },
+    "src/app/api/fal-stream/route.ts": {
+      "maxDuration": 100
+    },
+    "src/app/api/vision-analyze/route.ts": {
+      "maxDuration": 100
+    }
+  }
+}

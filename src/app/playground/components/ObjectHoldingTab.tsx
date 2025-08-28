@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { Package, User, Upload, Image as ImageIcon, Eye } from 'lucide-react';
 import { LogoIcon } from './LogoIcon';
 import { BananaRain } from './BananaRain';
+import { compressImage, getImageSizeInMB } from '../utils/imageCompression';
 // FAL API calls are handled through server-side routes for security
 
 interface GeneratedImage {
@@ -31,11 +32,28 @@ const ObjectHoldingTab = () => {
   const personInputRef = useRef<HTMLInputElement>(null);
   const objectInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = (file: File, type: 'person' | 'object') => {
+  const handleImageUpload = async (file: File, type: 'person' | 'object') => {
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string;
+      reader.onload = async (e) => {
+        let imageUrl = e.target?.result as string;
+        
+        // Check image size and compress if needed (>6MB)
+        const sizeInMB = getImageSizeInMB(imageUrl);
+        if (sizeInMB > 6) {
+          try {
+            // Compress image to max 1920x1920 with 90% quality
+            imageUrl = await compressImage(imageUrl, 1920, 1920, 0.9);
+            
+            // If still too large, compress more aggressively
+            if (getImageSizeInMB(imageUrl) > 6) {
+              imageUrl = await compressImage(imageUrl, 1024, 1024, 0.8);
+            }
+          } catch (error) {
+            console.error('Failed to compress image:', error);
+          }
+        }
+        
         if (type === 'person') {
           setPersonImage(imageUrl);
         } else {

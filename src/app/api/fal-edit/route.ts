@@ -1,50 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fal } from '@fal-ai/client';
 import { checkRateLimit, getRateLimitKey, formatTimeRemaining } from '@/lib/rate-limiter';
+import { isModelAllowed, getModelValidationError } from '@/lib/allowed-models';
 
 export const maxDuration = 100; // Maximum function duration: 100 seconds
 export const runtime = 'nodejs';
 
-// Get FAL API key from environment variable
 const FAL_KEY = process.env.FAL_KEY;
 
 if (!FAL_KEY) {
   throw new Error('FAL_KEY environment variable is not set');
 }
 
-// Convert base64 to Blob
-function base64ToBlob(base64: string): Blob {
-  // Remove data URL prefix if present
-  const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
-  
-  // Convert base64 to binary
-  const binaryString = atob(base64Data);
-  const bytes = new Uint8Array(binaryString.length);
-  
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  
-  // Detect mime type from base64 prefix or default to png
-  let mimeType = 'image/png';
-  if (base64.startsWith('data:')) {
-    const matches = base64.match(/^data:([^;]+);/);
-    if (matches && matches[1]) {
-      mimeType = matches[1];
-    }
-  }
-  
-  return new Blob([bytes], { type: mimeType });
-}
 
 export async function POST(request: NextRequest) {
   try {
-    // Check request size before processing
+    // Check request size before processing (allow up to 8MB for two images)
     const contentLength = request.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 4 * 1024 * 1024) {
+    if (contentLength && parseInt(contentLength) > 8 * 1024 * 1024) {
       return NextResponse.json(
         { 
-          error: 'Request too large. Please compress your images before uploading. Maximum size is 4MB.',
+          error: 'Request too large. Please compress your images before uploading. Maximum total size is 8MB.',
           tip: 'Images are automatically compressed on the client side. If you still see this error, try uploading smaller images.'
         },
         { status: 413 }
@@ -52,15 +28,15 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
-    const { prompt, image_url, object_image_url, num_images = 1, customApiKey } = body;
+    const { model, prompt, image_url, object_image_url, num_images = 1, customApiKey } = body;
     
-    // Additional check for base64 image sizes
+    // Additional check for base64 image sizes (allow 4MB per image)
     if (image_url && image_url.startsWith('data:')) {
       const imageSizeBytes = (image_url.length * 3) / 4;
-      if (imageSizeBytes > 3.5 * 1024 * 1024) {
+      if (imageSizeBytes > 4 * 1024 * 1024) {
         return NextResponse.json(
           { 
-            error: 'Person image is too large. Maximum size is 3.5MB after compression.',
+            error: 'Person image is too large. Maximum size is 4MB after compression.',
             currentSize: `${(imageSizeBytes / (1024 * 1024)).toFixed(2)}MB`
           },
           { status: 413 }
@@ -70,10 +46,10 @@ export async function POST(request: NextRequest) {
     
     if (object_image_url && object_image_url.startsWith('data:')) {
       const objectSizeBytes = (object_image_url.length * 3) / 4;
-      if (objectSizeBytes > 3.5 * 1024 * 1024) {
+      if (objectSizeBytes > 4 * 1024 * 1024) {
         return NextResponse.json(
           { 
-            error: 'Object image is too large. Maximum size is 3.5MB after compression.',
+            error: 'Object image is too large. Maximum size is 4MB after compression.',
             currentSize: `${(objectSizeBytes / (1024 * 1024)).toFixed(2)}MB`
           },
           { status: 413 }
@@ -82,9 +58,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required fields
-    if (!prompt || !image_url) {
+    if (!model || !prompt || !image_url) {
       return NextResponse.json(
-        { error: 'Missing required fields: prompt and image_url' },
+        { error: 'Missing required fields: model, prompt and image_url' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate model against strict allowlist
+    if (!isModelAllowed(model)) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid model', 
+          message: getModelValidationError()
+        },
         { status: 400 }
       );
     }
@@ -92,7 +79,6 @@ export async function POST(request: NextRequest) {
     // Use custom API key if provided, otherwise use default
     const apiKey = customApiKey || FAL_KEY;
     
-    // Configure FAL with the appropriate key
     fal.config({
       credentials: apiKey
     });
@@ -127,21 +113,28 @@ export async function POST(request: NextRequest) {
     let objectImageToProcess = object_image_url;
     
     // Process primary image (person) if it's base64
-    if (image_url.startsWith('data:')) {
-      // Upload person image to FAL storage
+    if (image_url && image_url.startsWith('data:')) {
       try {
-        const blob = base64ToBlob(image_url);
+        // Extract base64 data
+        const base64Data = image_url.split(',')[1];
+        const mimeType = image_url.match(/data:([^;]+);/)?.[1] || 'image/png';
+        
+        // Convert to buffer
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Create file for upload
         const timestamp = Date.now();
-        const extension = blob.type.split('/')[1] || 'png';
+        const extension = mimeType.split('/')[1] || 'png';
         const fileName = `person_${timestamp}.${extension}`;
-        const file = new File([blob], fileName, { type: blob.type });
+        const file = new File([buffer], fileName, { type: mimeType });
         
         imageToProcess = await fal.storage.upload(file);
-        // Person image uploaded successfully
-      } catch {
-        // Upload failed
+      } catch (error) {
         return NextResponse.json(
-          { error: 'Failed to upload person image' },
+          { 
+            error: 'Failed to upload person image',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          },
           { status: 500 }
         );
       }
@@ -149,20 +142,27 @@ export async function POST(request: NextRequest) {
 
     // Process object image if provided and if it's base64
     if (object_image_url && object_image_url.startsWith('data:')) {
-      // Upload object image to FAL storage
       try {
-        const blob = base64ToBlob(object_image_url);
+        // Extract base64 data
+        const base64Data = object_image_url.split(',')[1];
+        const mimeType = object_image_url.match(/data:([^;]+);/)?.[1] || 'image/png';
+        
+        // Convert to buffer
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Create file for upload
         const timestamp = Date.now();
-        const extension = blob.type.split('/')[1] || 'png';
+        const extension = mimeType.split('/')[1] || 'png';
         const fileName = `object_${timestamp}.${extension}`;
-        const file = new File([blob], fileName, { type: blob.type });
+        const file = new File([buffer], fileName, { type: mimeType });
         
         objectImageToProcess = await fal.storage.upload(file);
-        // Object image uploaded successfully
-      } catch {
-        // Upload failed
+      } catch (error) {
         return NextResponse.json(
-          { error: 'Failed to upload object image' },
+          { 
+            error: 'Failed to upload object image',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          },
           { status: 500 }
         );
       }
@@ -174,11 +174,9 @@ export async function POST(request: NextRequest) {
       imageUrls.push(objectImageToProcess);
     }
 
-    // Process images with FAL API
-
-    // Call FAL API
     try {
-      const result = await fal.subscribe("fal-ai/gemini-25-flash-image/edit", {
+      // Use the model provided in the request (already validated to contain "gemini-25")
+      const result = await fal.subscribe(model, {
         input: {
           prompt: prompt,
           image_urls: imageUrls,
@@ -187,11 +185,9 @@ export async function POST(request: NextRequest) {
         logs: false
       });
 
-      // Transformation complete
-      
       // Extract images from result
       let images = [];
-      const resultData = result as any;
+      const resultData = result as { data?: { images?: unknown[]; image?: unknown | unknown[] }; images?: unknown[]; image?: unknown | unknown[]; requestId?: string };
       
       if (resultData.data?.images && Array.isArray(resultData.data.images)) {
         images = resultData.data.images;
@@ -204,7 +200,6 @@ export async function POST(request: NextRequest) {
       }
       
       if (images.length === 0) {
-        // No images in response
         return NextResponse.json(
           { error: 'No images generated' },
           { status: 500 }
@@ -212,7 +207,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Ensure all images have proper URL structure
-      const processedImages = images.map((img: any) => {
+      const processedImages = images.map((img: unknown) => {
         if (typeof img === 'string') {
           return { url: img };
         }
@@ -220,7 +215,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Build response
-      const response: any = {
+      const response: Record<string, unknown> = {
         success: true,
         images: processedImages,
         requestId: resultData.requestId
@@ -239,8 +234,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response);
 
     } catch (falError) {
-      // FAL API error occurred
-      const error = falError as any;
+      const error = falError as { status?: number; message?: string };
       
       // Check for specific error types
       if (error.status === 422) {
@@ -264,7 +258,6 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    // Request error occurred
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: 'Failed to process request', message: errorMessage },

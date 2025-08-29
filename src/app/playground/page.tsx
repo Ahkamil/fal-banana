@@ -7,6 +7,7 @@ import PortraitTab from './components/PortraitTab';
 import ObjectHoldingTab from './components/ObjectHoldingTab';
 import { BananaDialog } from './components/BananaDialog';
 import { SettingsDialog } from './components/SettingsDialog';
+import { PlaygroundProvider } from './context/PlaygroundContext';
 
 export default function PlaygroundPage() {
   const [activeTab, setActiveTab] = useState('weather-change');
@@ -14,7 +15,8 @@ export default function PlaygroundPage() {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
-    <div className="bg-white min-h-screen text-content-strong font-focal relative overflow-hidden flex flex-col">
+    <PlaygroundProvider>
+      <div className="bg-white min-h-screen text-content-strong font-focal relative overflow-hidden flex flex-col">
       {/* Decorative elements */}
       <svg width="332" height="209" viewBox="0 0 332 209" fill="none" xmlns="http://www.w3.org/2000/svg" className="pointer-events-none absolute left-[235px] top-[40px] hidden lg:block">
         <path d="M167.01 47.7147L30.3829 158.403L301.547 98.772" stroke="#3B82F6" strokeWidth="59.5056" strokeLinecap="round" strokeLinejoin="round" />
@@ -92,5 +94,6 @@ export default function PlaygroundPage() {
         </div>
       </footer>
     </div>
+    </PlaygroundProvider>
   );
 }

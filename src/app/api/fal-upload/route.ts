@@ -4,7 +4,6 @@ import { fal } from '@fal-ai/client';
 export const maxDuration = 100; // Maximum function duration: 100 seconds
 export const runtime = 'nodejs';
 
-// Get FAL API key from environment variable
 const FAL_KEY = process.env.FAL_KEY;
 
 if (!FAL_KEY) {
@@ -27,7 +26,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload image to FAL storage
     let uploadedUrl: string;
 
     // Check if the image is a base64 data URL
@@ -47,26 +45,22 @@ export async function POST(request: NextRequest) {
       // Create a File object from the buffer
       const file = new File([buffer], fileName, { type: mimeType });
       
-      // Upload the file to FAL's storage
       uploadedUrl = await fal.storage.upload(file);
     } else {
       // If it's already a URL or other format, upload directly
       uploadedUrl = await fal.storage.upload(image);
     }
     
-    // Image uploaded successfully
-
     return NextResponse.json({
       success: true,
       url: uploadedUrl
     });
-  } catch (error: any) {
-    // Upload error occurred
+  } catch (error) {
     return NextResponse.json(
       { 
         error: 'Failed to upload image', 
-        message: error.message || 'Unknown error',
-        details: error.toString()
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.toString() : 'Unknown error'
       },
       { status: 500 }
     );

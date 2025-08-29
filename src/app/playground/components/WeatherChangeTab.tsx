@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Cloud, Sun, Upload, Image as ImageIcon, Clock, Palette, Key, AlertCircle, X, Info } from 'lucide-react';
 import { LogoIcon } from './LogoIcon';
-import { BananaRain } from './BananaRain';
+import { usePlaygroundContext } from '../context/PlaygroundContext';
 // FAL API calls are handled through server-side routes for security
 
 interface TransformedImage {
@@ -20,17 +20,47 @@ interface WeatherSelection {
 }
 
 const WeatherChangeTab = () => {
-  const [originalImage, setOriginalImage] = useState<string | null>(null);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [beforeImage, setBeforeImage] = useState<string | null>(null);
+  const { weatherState, setWeatherState, rateLimits, setRateLimits } = usePlaygroundContext();
+  
+  // Use state from context
+  const { 
+    originalImage, 
+    currentImage, 
+    beforeImage, 
+    transformedImages, 
+    selections 
+  } = weatherState;
+  
+  // Local state for UI-only states
   const [showBefore, setShowBefore] = useState(false);
-  const [transformedImages, setTransformedImages] = useState<TransformedImage[]>([]);
   const [isTransforming, setIsTransforming] = useState(false);
   const [imagePrompt, setImagePrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [rateLimits, setRateLimits] = useState<{ hourly: number; daily: number } | null>(null);
-  const [selections, setSelections] = useState<WeatherSelection>({});
-  const [showBananaRain, setShowBananaRain] = useState(false);
+  
+  // Helper functions to update context
+  const setOriginalImage = (image: string | null) => {
+    setWeatherState(prev => ({ ...prev, originalImage: image }));
+  };
+  const setCurrentImage = (image: string | null) => {
+    setWeatherState(prev => ({ ...prev, currentImage: image }));
+  };
+  const setBeforeImage = (image: string | null) => {
+    setWeatherState(prev => ({ ...prev, beforeImage: image }));
+  };
+  const setTransformedImages = (images: TransformedImage[] | ((prev: TransformedImage[]) => TransformedImage[])) => {
+    if (typeof images === 'function') {
+      setWeatherState(prev => ({ ...prev, transformedImages: images(prev.transformedImages) }));
+    } else {
+      setWeatherState(prev => ({ ...prev, transformedImages: images }));
+    }
+  };
+  const setSelections = (sel: WeatherSelection | ((prev: WeatherSelection) => WeatherSelection)) => {
+    if (typeof sel === 'function') {
+      setWeatherState(prev => ({ ...prev, selections: sel(prev.selections) }));
+    } else {
+      setWeatherState(prev => ({ ...prev, selections: sel }));
+    }
+  };
   const [hasCustomKey, setHasCustomKey] = useState(false);
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,7 +203,6 @@ const WeatherChangeTab = () => {
     if (!imagePrompt.trim()) return;
     
     setIsGenerating(true);
-    setShowBananaRain(true); // Start banana rain!
     // Clear current image to show white placeholder
     setCurrentImage(null);
     setBeforeImage(null);
@@ -224,7 +253,7 @@ const WeatherChangeTab = () => {
           setCurrentImage(originalImage);
         }
       }
-    } catch (error) {
+    } catch {
       alert('Failed to generate image. Please try again.');
       // Restore previous image if any
       if (originalImage) {
@@ -233,7 +262,6 @@ const WeatherChangeTab = () => {
     } finally {
       setIsGenerating(false);
       // Stop banana rain when generation completes
-      setShowBananaRain(false);
     }
   };
 
@@ -249,7 +277,6 @@ const WeatherChangeTab = () => {
     }
     
     setIsTransforming(true);
-    setShowBananaRain(true); // Start banana rain!
     
     try {
       const prompt = buildPrompt();
@@ -264,6 +291,7 @@ const WeatherChangeTab = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          model: "fal-ai/gemini-25-flash-image/edit",
           prompt: prompt,
           image_url: originalImage, // Send base64 or URL
           num_images: 1,
@@ -313,12 +341,11 @@ const WeatherChangeTab = () => {
       } else {
         alert('Failed to generate transformed image. Please try again.');
       }
-    } catch (error) {
-      alert('An error occurred while transforming the image. Please check the console for details.');
+    } catch {
+      alert('An error occurred while transforming the image.');
     } finally {
       setIsTransforming(false);
       // Stop banana rain when transformation completes
-      setShowBananaRain(false);
     }
   };
 
@@ -336,9 +363,7 @@ const WeatherChangeTab = () => {
   };
 
   return (
-    <>
-      <BananaRain isActive={showBananaRain} duration={3000} />
-      <div className="flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full">
       {/* Title Section */}
       <div className="text-center mb-8">
         <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black flex items-center justify-center gap-3">
@@ -359,7 +384,7 @@ const WeatherChangeTab = () => {
             <Info className="w-3.5 h-3.5 text-green-600" />
           </button>
         ) : (
-          rateLimits && (
+          rateLimits && rateLimits.hourly !== 999 && (
             <div className="mt-4 inline-flex items-center gap-4 px-4 py-2 bg-gray-100 rounded-lg text-sm">
               <span className="text-gray-600">Remaining:</span>
               <span className={`font-semibold ${rateLimits.hourly <= 2 ? 'text-orange-600' : 'text-gray-800'}`}>
@@ -583,7 +608,6 @@ const WeatherChangeTab = () => {
           )}
         </div>
       </div>
-      </div>
       
       {/* API Key Info Dialog */}
       {showApiKeyDialog && (
@@ -640,7 +664,7 @@ const WeatherChangeTab = () => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

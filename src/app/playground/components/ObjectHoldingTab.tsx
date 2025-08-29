@@ -3,8 +3,8 @@
 import { useState, useRef } from 'react';
 import { Package, User, Upload, Image as ImageIcon, Eye } from 'lucide-react';
 import { LogoIcon } from './LogoIcon';
-import { BananaRain } from './BananaRain';
 import { compressImage, getImageSizeInMB, compressImageToSize } from '../utils/imageCompression';
+import { usePlaygroundContext } from '../context/PlaygroundContext';
 // FAL API calls are handled through server-side routes for security
 
 interface GeneratedImage {
@@ -14,21 +14,56 @@ interface GeneratedImage {
 }
 
 const ObjectHoldingTab = () => {
-  const [personImage, setPersonImage] = useState<string | null>(null);
-  const [objectImage, setObjectImage] = useState<string | null>(null);
-  const [beforeImage, setBeforeImage] = useState<string | null>(null);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
+  const { objectHoldingState, setObjectHoldingState, rateLimits, setRateLimits } = usePlaygroundContext();
+  
+  // Use state from context
+  const { 
+    personImage, 
+    objectImage, 
+    currentImage, 
+    beforeImage, 
+    generatedImages, 
+    generatedPrompt,
+    personPrompt,
+    objectPrompt
+  } = objectHoldingState;
+  
+  // Local state for UI-only states
   const [showBefore, setShowBefore] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [generatedPrompt, setGeneratedPrompt] = useState('');
-  const [rateLimits, setRateLimits] = useState<{ hourly: number; daily: number } | null>(null);
-  const [personPrompt, setPersonPrompt] = useState('');
-  const [objectPrompt, setObjectPrompt] = useState('');
   const [isGeneratingPerson, setIsGeneratingPerson] = useState(false);
   const [isGeneratingObject, setIsGeneratingObject] = useState(false);
-  const [showBananaRain, setShowBananaRain] = useState(false);
+  
+  // Helper functions to update context
+  const setPersonImage = (image: string | null) => {
+    setObjectHoldingState(prev => ({ ...prev, personImage: image }));
+  };
+  const setObjectImage = (image: string | null) => {
+    setObjectHoldingState(prev => ({ ...prev, objectImage: image }));
+  };
+  const setCurrentImage = (image: string | null) => {
+    setObjectHoldingState(prev => ({ ...prev, currentImage: image }));
+  };
+  const setBeforeImage = (image: string | null) => {
+    setObjectHoldingState(prev => ({ ...prev, beforeImage: image }));
+  };
+  const setGeneratedImages = (images: GeneratedImage[] | ((prev: GeneratedImage[]) => GeneratedImage[])) => {
+    if (typeof images === 'function') {
+      setObjectHoldingState(prev => ({ ...prev, generatedImages: images(prev.generatedImages) }));
+    } else {
+      setObjectHoldingState(prev => ({ ...prev, generatedImages: images }));
+    }
+  };
+  const setGeneratedPrompt = (prompt: string) => {
+    setObjectHoldingState(prev => ({ ...prev, generatedPrompt: prompt }));
+  };
+  const setPersonPrompt = (prompt: string) => {
+    setObjectHoldingState(prev => ({ ...prev, personPrompt: prompt }));
+  };
+  const setObjectPrompt = (prompt: string) => {
+    setObjectHoldingState(prev => ({ ...prev, objectPrompt: prompt }));
+  };
   const personInputRef = useRef<HTMLInputElement>(null);
   const objectInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,19 +73,16 @@ const ObjectHoldingTab = () => {
       reader.onload = async (e) => {
         let imageUrl = e.target?.result as string;
         
-        // Compress image to stay under Vercel's 4MB limit
+        // Compress image to stay under 4MB limit
         const sizeInMB = getImageSizeInMB(imageUrl);
-        if (sizeInMB > 3.5) {  // Use 3.5MB as target to leave some buffer
+        if (sizeInMB > 3.8) {  // Use 3.8MB as target to leave some buffer
           try {
-            imageUrl = await compressImageToSize(imageUrl, 3.5);
-            console.log(`Image compressed from ${sizeInMB.toFixed(2)}MB to ${getImageSizeInMB(imageUrl).toFixed(2)}MB`);
-          } catch (error) {
-            console.error('Failed to compress image:', error);
+            imageUrl = await compressImageToSize(imageUrl, 3.8);
+          } catch {
             // Fallback to aggressive compression
             try {
               imageUrl = await compressImage(imageUrl, 800, 800, 0.5);
-            } catch (fallbackError) {
-              console.error('Fallback compression also failed:', fallbackError);
+            } catch {
             }
           }
         }
@@ -99,7 +131,6 @@ const ObjectHoldingTab = () => {
     if (!personPrompt.trim()) return;
     
     setIsGeneratingPerson(true);
-    setShowBananaRain(true); // Start banana rain!
     
     try {
 
@@ -131,12 +162,10 @@ const ObjectHoldingTab = () => {
         setCurrentImage(null);
         setBeforeImage(null);
       }
-    } catch (error) {
+    } catch {
       alert('Failed to generate person image. Please try again.');
     } finally {
       setIsGeneratingPerson(false);
-      // Stop banana rain when generation completes
-      setShowBananaRain(false);
     }
   };
 
@@ -144,7 +173,6 @@ const ObjectHoldingTab = () => {
     if (!objectPrompt.trim()) return;
     
     setIsGeneratingObject(true);
-    setShowBananaRain(true); // Start banana rain!
     
     try {
 
@@ -176,12 +204,10 @@ const ObjectHoldingTab = () => {
         setCurrentImage(null);
         setBeforeImage(null);
       }
-    } catch (error) {
+    } catch {
       alert('Failed to generate object image. Please try again.');
     } finally {
       setIsGeneratingObject(false);
-      // Stop banana rain when generation completes
-      setShowBananaRain(false);
     }
   };
 
@@ -195,7 +221,6 @@ const ObjectHoldingTab = () => {
     const customApiKey = localStorage.getItem('fal_api_key');
     
     setIsAnalyzing(true);
-    setShowBananaRain(true); // Start banana rain!
     
     try {
       // Step 1: First, upload both images to FAL storage
@@ -249,6 +274,7 @@ const ObjectHoldingTab = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          model: "fal-ai/gemini-25-flash-image/edit",
           prompt: prompt,
           image_url: personImage, // Primary image (person)
           object_image_url: objectImage, // Secondary image (object)
@@ -291,13 +317,11 @@ const ObjectHoldingTab = () => {
         throw new Error('No images generated');
       }
 
-    } catch (error) {
+    } catch {
       alert('Failed to process images. Please try again.');
     } finally {
       setIsAnalyzing(false);
       setIsGenerating(false);
-      // Stop banana rain when generation completes
-      setShowBananaRain(false);
     }
   };
 
@@ -314,9 +338,7 @@ const ObjectHoldingTab = () => {
   };
 
   return (
-    <>
-      <BananaRain isActive={showBananaRain} duration={3000} />
-      <div className="flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full">
       {/* Title Section */}
       <div className="text-center mb-8">
         <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black flex items-center justify-center gap-3">
@@ -326,8 +348,8 @@ const ObjectHoldingTab = () => {
         <p className="text-lg text-content-strong font-hal max-w-2xl mx-auto mt-4">
           Combine person and object images to create natural holding/using scenes
         </p>
-        {/* Rate Limit Display for Production */}
-        {process.env.NODE_ENV === 'production' && rateLimits && (
+        {/* Rate Limit Display - Only show if not 999 (development mode) */}
+        {rateLimits && rateLimits.hourly !== 999 && (
           <div className="mt-4 inline-flex items-center gap-4 px-4 py-2 bg-gray-100 rounded-lg text-sm">
             <span className="text-gray-600">Remaining:</span>
             <span className={`font-semibold ${rateLimits.hourly <= 2 ? 'text-orange-600' : 'text-gray-800'}`}>
@@ -541,7 +563,7 @@ const ObjectHoldingTab = () => {
                 {!currentImage ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400">
                     <LogoIcon className="h-16 w-16 opacity-40 mb-4" />
-                    <p className="text-sm">Upload images and click "Create Object Holding Scene" to start</p>
+                    <p className="text-sm">Upload images and click &quot;Create Object Holding Scene&quot; to start</p>
                   </div>
                 ) : isGenerating ? (
                   <div className="relative w-full h-full">
@@ -649,8 +671,7 @@ const ObjectHoldingTab = () => {
           )}
         </div>
       </div>
-      </div>
-    </>
+    </div>
   );
 };
 

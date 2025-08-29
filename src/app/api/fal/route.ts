@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fal } from '@fal-ai/client';
 import { checkRateLimit, getRateLimitKey, formatTimeRemaining } from '@/lib/rate-limiter';
+import { isModelAllowed, getModelValidationError } from '@/lib/allowed-models';
 
 export const maxDuration = 100; // Maximum function duration: 100 seconds
 export const runtime = 'nodejs';
 
-// Get FAL API key from environment variable
 const FAL_KEY = process.env.FAL_KEY;
 
 if (!FAL_KEY) {
@@ -23,11 +23,21 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    
+    // Validate model against strict allowlist
+    if (!isModelAllowed(model)) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid model', 
+          message: getModelValidationError()
+        },
+        { status: 400 }
+      );
+    }
 
     // Use custom API key if provided, otherwise use default
     const apiKey = customApiKey || FAL_KEY;
     
-    // Configure FAL with the appropriate key
     fal.config({
       credentials: apiKey
     });
@@ -56,7 +66,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call FAL AI with subscribe for real-time updates
     const result = await fal.subscribe(model, {
       input,
       logs: false

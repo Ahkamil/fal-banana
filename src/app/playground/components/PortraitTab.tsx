@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { User, Palette, Upload, Image as ImageIcon, Smile, Eye, Scissors, Key, Info } from 'lucide-react';
 import { LogoIcon } from './LogoIcon';
-import { BananaRain } from './BananaRain';
+import { usePlaygroundContext } from '../context/PlaygroundContext';
 // FAL API calls are handled through server-side routes for security
 
 interface TransformedPortrait {
@@ -22,17 +22,47 @@ interface PortraitSelection {
 }
 
 const PortraitTab = () => {
-  const [originalImage, setOriginalImage] = useState<string | null>(null);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [beforeImage, setBeforeImage] = useState<string | null>(null);
+  const { portraitState, setPortraitState, rateLimits, setRateLimits } = usePlaygroundContext();
+  
+  // Use state from context
+  const { 
+    originalImage, 
+    currentImage, 
+    beforeImage, 
+    transformedImages, 
+    selections 
+  } = portraitState;
+  
+  // Local state for UI-only states
   const [showBefore, setShowBefore] = useState(false);
-  const [transformedImages, setTransformedImages] = useState<TransformedPortrait[]>([]);
   const [isTransforming, setIsTransforming] = useState(false);
   const [imagePrompt, setImagePrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [rateLimits, setRateLimits] = useState<{ hourly: number; daily: number } | null>(null);
-  const [selections, setSelections] = useState<PortraitSelection>({ faceFeatures: [] });
-  const [showBananaRain, setShowBananaRain] = useState(false);
+  
+  // Helper functions to update context
+  const setOriginalImage = (image: string | null) => {
+    setPortraitState(prev => ({ ...prev, originalImage: image }));
+  };
+  const setCurrentImage = (image: string | null) => {
+    setPortraitState(prev => ({ ...prev, currentImage: image }));
+  };
+  const setBeforeImage = (image: string | null) => {
+    setPortraitState(prev => ({ ...prev, beforeImage: image }));
+  };
+  const setTransformedImages = (images: TransformedPortrait[] | ((prev: TransformedPortrait[]) => TransformedPortrait[])) => {
+    if (typeof images === 'function') {
+      setPortraitState(prev => ({ ...prev, transformedImages: images(prev.transformedImages) }));
+    } else {
+      setPortraitState(prev => ({ ...prev, transformedImages: images }));
+    }
+  };
+  const setSelections = (sel: PortraitSelection | ((prev: PortraitSelection) => PortraitSelection)) => {
+    if (typeof sel === 'function') {
+      setPortraitState(prev => ({ ...prev, selections: sel(prev.selections) }));
+    } else {
+      setPortraitState(prev => ({ ...prev, selections: sel }));
+    }
+  };
   const [hasCustomKey, setHasCustomKey] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -267,7 +297,6 @@ const PortraitTab = () => {
     if (!imagePrompt.trim()) return;
     
     setIsGenerating(true);
-    setShowBananaRain(true);
     // Clear current image to show white placeholder
     setOriginalImage(null);
     setCurrentImage(null);
@@ -322,7 +351,7 @@ const PortraitTab = () => {
           setCurrentImage(originalImage);
         }
       }
-    } catch (error) {
+    } catch {
       alert('Failed to generate portrait. Please try again.');
       // Restore previous image if any
       if (originalImage) {
@@ -331,7 +360,6 @@ const PortraitTab = () => {
       }
     } finally {
       setIsGenerating(false);
-      setShowBananaRain(false);
     }
   };
 
@@ -354,7 +382,6 @@ const PortraitTab = () => {
     }
     
     setIsTransforming(true);
-    setShowBananaRain(true);
     try {
       const prompt = buildPrompt();
       
@@ -368,6 +395,7 @@ const PortraitTab = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          model: "fal-ai/gemini-25-flash-image/edit",
           prompt: prompt,
           image_url: originalImage,
           num_images: 1,
@@ -413,11 +441,10 @@ const PortraitTab = () => {
       } else {
         alert('Failed to generate transformed portrait. Please try again.');
       }
-    } catch (error) {
-      alert('An error occurred while transforming the portrait. Please check the console for details.');
+    } catch {
+      alert('An error occurred while transforming the portrait.');
     } finally {
       setIsTransforming(false);
-      setShowBananaRain(false);
     }
   };
 
@@ -434,9 +461,7 @@ const PortraitTab = () => {
   };
 
   return (
-    <>
-      <BananaRain isActive={showBananaRain} duration={3000} />
-      <div className="flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full">
       {/* Title Section */}
       <div className="text-center mb-8">
         <h1 className="text-5xl md:text-6xl font-medium tracking-tight text-black flex items-center justify-center gap-3">
@@ -454,7 +479,7 @@ const PortraitTab = () => {
             <Info className="w-3.5 h-3.5 text-green-600" />
           </div>
         ) : (
-          rateLimits && (
+          rateLimits && rateLimits.hourly !== 999 && (
             <div className="mt-4 inline-flex items-center gap-4 px-4 py-2 bg-gray-100 rounded-lg text-sm">
               <span className="text-gray-600">Remaining:</span>
               <span className={`font-semibold ${rateLimits.hourly <= 2 ? 'text-orange-600' : 'text-gray-800'}`}>
@@ -695,7 +720,6 @@ const PortraitTab = () => {
         </div>
       </div>
     </div>
-    </>
   );
 };
 

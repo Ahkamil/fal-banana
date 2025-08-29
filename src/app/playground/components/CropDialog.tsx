@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Check, RotateCw } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 
 interface CropDialogProps {
   imageUrl: string;
@@ -188,8 +188,7 @@ export default function CropDialog({ imageUrl, isOpen, onClose, onApply }: CropD
             const croppedImageUrl = canvas.toDataURL('image/png');
             onApply(croppedImageUrl, cropBox.width, cropBox.height);
             onClose();
-          } catch (error) {
-            console.warn('CORS issue with external image, using original URL');
+          } catch {
             // You could pass crop coordinates back instead
             onApply(imageUrl, cropBox.width, cropBox.height);
             onClose();

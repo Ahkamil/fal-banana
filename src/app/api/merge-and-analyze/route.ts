@@ -6,7 +6,6 @@ import { isUrlSafe, getUrlValidationError } from '@/lib/url-validator';
 export const maxDuration = 100; // Maximum function duration: 100 seconds
 export const runtime = 'nodejs';
 
-// Get FAL API key from environment variable
 const FAL_KEY = process.env.FAL_KEY;
 
 if (!FAL_KEY) {
@@ -20,8 +19,6 @@ fal.config({
 // Function to create a merged image using Sharp
 async function createMergedImage(personImageUrl: string, objectImageUrl: string): Promise<string> {
   try {
-    // Creating merged image with Sharp
-    
     let personBuf: Buffer;
     let objectBuf: Buffer;
     
@@ -64,15 +61,11 @@ async function createMergedImage(personImageUrl: string, objectImageUrl: string)
       throw new Error('Invalid object image URL format');
     }
 
-    // Processing images with Sharp
-
     // Try to get metadata first to debug the issue
     try {
       await sharp(personBuf).metadata();
       await sharp(objectBuf).metadata();
-      // Metadata extracted successfully
     } catch {
-      // Metadata detection failed
     }
 
     let personProcessed: Buffer;
@@ -91,15 +84,8 @@ async function createMergedImage(personImageUrl: string, objectImageUrl: string)
         .jpeg({ quality: 90 })
         .toBuffer();
 
-      // Successfully processed both images with Sharp
-
     } catch {
-      // Sharp failed to process .octet files, trying fallback approach
-      
-      // Fallback: Return person image URL for vision analysis without merging
-      // The vision LLM prompt will instruct it to consider both images conceptually
       const personBase64 = personBuf.toString('base64');
-      // Using fallback: returning person image as base64
       return `data:image/jpeg;base64,${personBase64}`;
     }
 
@@ -124,7 +110,6 @@ async function createMergedImage(personImageUrl: string, objectImageUrl: string)
     return `data:image/jpeg;base64,${mergedBase64}`;
 
   } catch (error) {
-    // Error creating merged image
     throw error;
   }
 }
@@ -141,25 +126,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Merging and analyzing images
-
     try {
       // Step 1: Create merged image
       const mergedImageData = await createMergedImage(personImageUrl, objectImageUrl);
-      // Images merged successfully
-
-      // Step 2: Upload merged image to FAL to get proper URL
-      // Uploading merged image to FAL
       
       const base64Data = mergedImageData.split(',')[1];
       const binaryData = Buffer.from(base64Data, 'base64');
       const file = new File([binaryData], 'merged-image.jpg', { type: 'image/jpeg' });
       
       const mergedImageUrl = await fal.storage.upload(file);
-      // Merged image uploaded successfully
-
-      // Step 3: Analyze merged image with Vision LLM using correct format
-      // Analyzing merged image with Vision LLM
       
       const combinedPrompt = `This image shows a person on the LEFT and a separate object on the RIGHT. The person should be holding/using the object from the RIGHT side, not whatever they may already have. Generate a prompt for the LEFT person to hold/use the RIGHT object. Format: "[person description] [action with RIGHT object]". Example: "This woman holding this bottle". Only the RIGHT object matters.`;
 
@@ -168,7 +143,7 @@ export async function POST(request: NextRequest) {
           prompt: combinedPrompt,
           system_prompt: "IGNORE anything the person on LEFT already has. Focus only on the separate object on the RIGHT side. Generate prompt for LEFT person to hold/use the RIGHT object. Format: '[person] [action] [RIGHT object]'. Keep under 6 words.",
           priority: "latency",
-          model: "google/gemini-flash-1.5",
+          model: "google/gemini-25-flash",
           image_url: mergedImageUrl
         }
       });
@@ -183,8 +158,6 @@ export async function POST(request: NextRequest) {
       const result = await stream.done();
       generatedPrompt = result.output || generatedPrompt || 'Person holding and using the object in a natural pose';
 
-      // Generated prompt successfully
-
       return NextResponse.json({
         success: true,
         prompt: generatedPrompt,
@@ -193,9 +166,6 @@ export async function POST(request: NextRequest) {
       });
 
     } catch {
-      // Vision analysis failed, using fallback
-      
-      // Fallback to template-based approach
       const promptTemplates = [
         "Person holding and showcasing the object in a natural, professional pose with good lighting",
         "Person using the object in an everyday, realistic setting with natural lighting",
@@ -215,14 +185,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-  } catch (error: any) {
-    // Merge and analyze error occurred
-    
+  } catch (error) {
     return NextResponse.json(
       { 
         error: 'Merge and analyze failed', 
-        message: error.message || 'Unknown error',
-        details: error.toString()
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.toString() : 'Unknown error'
       },
       { status: 500 }
     );

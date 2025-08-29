@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fal } from '@fal-ai/client';
-import { isUrlSafe, getUrlValidationError } from '@/lib/url-validator';
 
 export const maxDuration = 100; // Maximum function duration: 100 seconds
 export const runtime = 'nodejs';
 
-// Get FAL API key from environment variable
 const FAL_KEY = process.env.FAL_KEY;
 
 if (!FAL_KEY) {
@@ -16,43 +14,6 @@ fal.config({
   credentials: FAL_KEY,
 });
 
-// Function to fetch image as buffer with URL validation
-async function fetchImageAsBuffer(url: string): Promise<Buffer> {
-  // Validate URL for SSRF protection
-  if (!isUrlSafe(url)) {
-    throw new Error(`URL blocked: ${getUrlValidationError(url)}`);
-  }
-  
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.statusText}`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
-// Function to merge two images side by side using HTML5 Canvas
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function mergeImages(personImageUrl: string, objectImageUrl: string): Promise<string> {
-  try {
-    // Download images
-    const [personBuffer, objectBuffer] = await Promise.all([
-      fetchImageAsBuffer(personImageUrl),
-      fetchImageAsBuffer(objectImageUrl)
-    ]);
-
- 
-    const personBase64 = `data:image/jpeg;base64,${personBuffer.toString('base64')}`;
-    const objectBase64 = `data:image/jpeg;base64,${objectBuffer.toString('base64')}`;
-
-   
-    return personImageUrl; // We'll analyze both separately but provide combined prompt
-
-  } catch (error) {
-    // Error merging images, will analyze separately
-    throw error;
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,8 +26,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Analyze images with Vision LLM
 
     try {
       // Create a combined prompt for vision analysis
@@ -83,7 +42,7 @@ Generate a prompt for: Person holding/using the object naturally.`;
           prompt: combinedPrompt,
           system_prompt: "You are an expert at creating detailed prompts for AI image generation. Analyze the person and object images. Create a single, detailed prompt that describes the person holding, using, or wearing the object in a natural and realistic way. Only provide the prompt text, no additional commentary or formatting.",
           priority: "latency",
-          model: "openai/gpt-4-vision-preview",
+          model: "google/gemini-25-flash",
           image_url: personImageUrl
         }
       });
@@ -108,9 +67,6 @@ Generate a prompt for: Person holding/using the object naturally.`;
       });
 
     } catch {
-      // Vision analysis failed, use fallback
-      
-      // Fallback to template-based approach
       const promptTemplates = [
         "Person holding and showcasing the object in a natural, professional pose with good lighting",
         "Person using the object in an everyday, realistic setting with natural lighting",
@@ -130,14 +86,12 @@ Generate a prompt for: Person holding/using the object naturally.`;
       });
     }
 
-  } catch (error: any) {
-    // Vision analysis error
-    
+  } catch (error) {
     return NextResponse.json(
       { 
         error: 'Vision analysis failed', 
-        message: error.message || 'Unknown error',
-        details: error.toString()
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.toString() : 'Unknown error'
       },
       { status: 500 }
     );
